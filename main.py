@@ -72,7 +72,7 @@ def fetch_and_cache_prices():
     except Exception as e:
         print(f"Error updating prices: {e}")
 
-@app.get("/polymarket-over-under-bet/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
 def fetch_default_close_prices_html():
     """Return an HTML page with the current time, time remaining for the next bet, and a 3x2 grid of asset prices."""
     if "latest_prices" not in price_cache:
