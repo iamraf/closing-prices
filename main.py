@@ -1,12 +1,11 @@
 from utils import (get_close_prices,
                    get_et_now, get_time_until_next_midday,
-                   should_update_prices)
+                   should_update_prices, update_prices_if_needed)
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from jinja2 import Environment, FileSystemLoader
-from datetime import datetime, timedelta, timezone
-import pytz
+
 import os
 
 app = FastAPI()
@@ -22,21 +21,11 @@ def fetch_default_close_prices_html():
     global price_cache, last_update_date
 
     et_now = get_et_now()
-
     pairs = ["BTC_USDT", "ETH_USDT", "SOL_USDT", "XRP_USDT"]
 
-    if not price_cache:
-        target_date = et_now.strftime("%Y-%m-%d 12:00")
-        price_cache.update(get_close_prices(pairs, target_date))
-        last_update_date = et_now.date()
-
-    if should_update_prices(et_now, last_update_date):
-        target_date = et_now.strftime("%Y-%m-%d 12:00")
-        price_cache = get_close_prices(pairs, target_date)
-        last_update_date = et_now.date()
+    price_cache, last_update_date = update_prices_if_needed(price_cache, last_update_date, pairs, et_now)
 
     time_only = et_now.strftime("%H:%M:%S")
-
     time_remaining = get_time_until_next_midday(et_now)
 
     html_content = template.render(

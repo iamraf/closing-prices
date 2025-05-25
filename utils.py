@@ -1,16 +1,37 @@
-from datetime import datetime, timezone
 import requests
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 def should_update_prices(et_now, last_update_date):
-    return et_now.hour == 12 and et_now.minute == 1 and (last_update_date != et_now.date())
+    return (et_now.hour == 12 and et_now.minute == 1
+            and (last_update_date != et_now.date()))
+
+def get_et_now():
+    return (datetime.now(timezone.utc)
+            .astimezone(timezone(timedelta(hours=-4)))
+            .replace(microsecond=0))
 
 def get_time_until_next_midday(et_now):
     if et_now.hour < 12 or (et_now.hour == 12 and et_now.minute == 0):
-        next_midday = et_now.replace(hour=12, minute=0, second=0, microsecond=0)
+        next_midday = (et_now
+                       .replace(hour=12, minute=0, second=0, microsecond=0))
     else:
-        next_midday = (et_now + timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0)
+        next_midday = ((et_now + timedelta(days=1))
+                       .replace(hour=12, minute=0, second=0, microsecond=0))
+
     return str(next_midday - et_now).split(".")[0]
+
+def update_prices_if_needed(price_cache, last_update_date, pairs, et_now):
+    target_date = et_now.strftime("%Y-%m-%d 12:00")
+
+    if not price_cache:
+        price_cache.update(get_close_prices(pairs, target_date))
+        last_update_date = et_now.date()
+
+    elif should_update_prices(et_now, last_update_date):
+        price_cache = get_close_prices(pairs, target_date)
+        last_update_date = et_now.date()
+
+    return price_cache, last_update_date
 
 def get_close_prices(pairs, target_date):
     dt = datetime.strptime(target_date, "%Y-%m-%d %H:%M") - timedelta(hours=-4)
@@ -33,6 +54,3 @@ def get_close_prices(pairs, target_date):
         else:
             result[pair] = "No data available."
     return result
-
-def get_et_now():
-    return datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=-4))).replace(microsecond=0)
