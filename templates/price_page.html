@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Over under polymarket bet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .grid-item {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+            background-color: #f9f9f9;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Last Asset Prices at 12:00 ET</h1>
+        <p>Current time: {{ time_only }} ET</p>
+        <p>Time remaining for the next bet: {{ time_remaining }}</p>
+    </div>
+    <div class="grid">
+        {% for asset, price in price_cache.items() %}
+            <div class="grid-item">{{ asset }}</div>
+            <div class="grid-item">{{ price }}</div>
+        {% endfor %}
+    </div>
+</body>
+</html>
