@@ -2,8 +2,8 @@ import requests
 from datetime import datetime, timedelta, timezone
 
 def should_update_prices(et_now, last_update_date):
-    return (et_now.hour == 12 and et_now.minute == 1
-            and (last_update_date != et_now.date()))
+    after_noon = (et_now.hour > 12) or (et_now.hour == 12 and et_now.minute >= 1)
+    return after_noon and (last_update_date != et_now.date())
 
 def get_et_now():
     return (datetime.now(timezone.utc)
@@ -23,12 +23,9 @@ def get_time_until_next_midday(et_now):
 def update_prices_if_needed(price_cache, last_update_date, pairs, et_now):
     target_date = et_now.strftime("%Y-%m-%d 12:00")
 
-    if not price_cache:
+    if not price_cache or should_update_prices(et_now, last_update_date):
+        price_cache.clear()
         price_cache.update(get_close_prices(pairs, target_date))
-        last_update_date = et_now.date()
-
-    elif should_update_prices(et_now, last_update_date):
-        price_cache = get_close_prices(pairs, target_date)
         last_update_date = et_now.date()
 
     return price_cache, last_update_date
