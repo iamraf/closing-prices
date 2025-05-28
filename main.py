@@ -1,6 +1,5 @@
-from utils import (get_close_prices,
-                   get_et_now, get_time_until_next_midday,
-                   should_update_prices, update_prices_if_needed)
+from utils import (get_et_now, get_time_until_next_midday,
+                    update_prices_if_needed)
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse

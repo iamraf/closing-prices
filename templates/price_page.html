@@ -5,38 +5,170 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            background: #f4f6fa;
+            margin: 0;
+            padding: 0;
         }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-        .grid-item {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: center;
-            background-color: #f9f9f9;
+        .container {
+            background: #fff;
+            max-width: 480px;
+            margin: 40px auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            padding: 32px 24px 24px 24px;
         }
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #2a3b4c;
+        }
+        .info {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #1976d2;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .countdown {
+            color: #d32f2f;
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+        }
+        th, td {
+            padding: 10px 0;
+            text-align: center;
+        }
+        th {
+            background: #f0f4f8;
+            color: #2a3b4c;
+            font-size: 1em;
+        }
+        tr:nth-child(even) td {
+            background: #f9fbfd;
+        }
+        .asset-icon {
+            width: 22px;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        .percent-pos {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+        .percent-neg {
+            color: #d32f2f;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Last Asset Prices at 12:00 ET</h1>
-        <p>Current time: {{ time_only }} ET</p>
-        <p>Time remaining for the next bet: {{ time_remaining }}</p>
+    <div class="container">
+        <div class="header">
+            <h1>Last Asset Prices at 12:00 ET</h1>
+            <div class="info">
+                Current time: <span id="et-time" class="highlight">{{ time_only }}</span> ET
+            </div>
+            <div class="info">
+                Time remaining for the next bet: <span id="time-remaining" class="countdown">{{ time_remaining }}</span>
+            </div>
+        </div>
+        <table>
+            <tr>
+                <th>Asset</th>
+                <th>12:00 ET Price</th>
+                <th>Live Price</th>
+                <th>Change %</th>
+            </tr>
+            {% set icons = {
+                'BTC_USDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/btc.png',
+                'ETH_USDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/eth.png',
+                'SOL_USDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/sol.png',
+                'XRP_USDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/xrp.png'
+            } %}
+            {% for asset, price in price_cache.items() %}
+            <tr>
+                <td>
+                    <img src="{{ icons.get(asset, '') }}" alt="{{ asset.split('_')[0] }}" class="asset-icon"/>
+                    {{ asset }}
+                </td>
+                <td>{{ price }}</td>
+                <td id="live-{{ asset.replace('_', '') }}">{{ price }}</td>
+                <td id="change-{{ asset.replace('_', '') }}">0.00%</td>
+            </tr>
+            {% endfor %}
+        </table>
     </div>
-    <div class="grid">
-        {% for asset, price in price_cache.items() %}
-            <div class="grid-item">{{ asset }}</div>
-            <div class="grid-item">{{ price }}</div>
-        {% endfor %}
-    </div>
+    <script>
+        let etNow = new Date();
+        let [h, m, s] = "{{ time_only }}".split(":").map(Number);
+        etNow.setHours(h, m, s, 0);
+
+        function pad(n) { return n < 10 ? '0' + n : n; }
+
+        function updateTimes() {
+            etNow.setSeconds(etNow.getSeconds() + 1);
+            document.getElementById('et-time').textContent =
+                pad(etNow.getHours()) + ":" + pad(etNow.getMinutes()) + ":" + pad(etNow.getSeconds());
+
+            let nextMidday = new Date(etNow);
+            if (etNow.getHours() < 12 || (etNow.getHours() === 12 && etNow.getMinutes() === 0 && etNow.getSeconds() === 0)) {
+                nextMidday.setHours(12, 0, 0, 0);
+            } else {
+                nextMidday.setDate(nextMidday.getDate() + 1);
+                nextMidday.setHours(12, 0, 0, 0);
+            }
+            let diff = Math.floor((nextMidday - etNow) / 1000);
+            let hours = Math.floor(diff / 3600);
+            let minutes = Math.floor((diff % 3600) / 60);
+            let seconds = diff % 60;
+            document.getElementById('time-remaining').textContent =
+                pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
+        }
+        setInterval(updateTimes, 1000);
+
+        const etPrices = {
+            {% for asset, price in price_cache.items() %}
+            "{{ asset.replace('_', '') }}": {{ price }},
+            {% endfor %}
+        };
+
+        const pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"];
+        const streams = pairs.map(p => p.toLowerCase() + "@miniTicker").join("/");
+        const ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=" + streams);
+
+        ws.onmessage = function(event) {
+            const msg = JSON.parse(event.data);
+            if (msg.data && msg.data.s && msg.data.c) {
+                const symbol = msg.data.s;
+                const id = "live-" + symbol;
+                const changeId = "change-" + symbol;
+                const el = document.getElementById(id);
+                const changeEl = document.getElementById(changeId);
+                const livePrice = parseFloat(msg.data.c);
+                if (el) el.textContent = livePrice.toFixed(3);
+
+                const basePrice = etPrices[symbol];
+                if (basePrice && changeEl) {
+                    const diff = livePrice - basePrice;
+                    const percent = (diff / basePrice) * 100;
+                    let sign = percent > 0 ? "+" : percent < 0 ? "-" : "";
+                    let cls = percent > 0 ? "percent-pos" : percent < 0 ? "percent-neg" : "";
+                    changeEl.textContent = sign + Math.abs(percent).toFixed(2) + "%";
+                    changeEl.className = cls;
+                }
+            }
+        };
+    </script>
 </body>
 </html>

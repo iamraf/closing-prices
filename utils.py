@@ -1,9 +1,11 @@
+import pytz
 import requests
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
+
 
 def should_update_prices(et_now, last_update_date):
-    after_noon = (et_now.hour > 12) or (et_now.hour == 12 and et_now.minute >= 1)
-    return after_noon and (last_update_date != et_now.date())
+    after_noon = (et_now.hour > 12) or (et_now.hour == 12 and et_now.minute >= 1 and et_now.second > 0)
+    return after_noon and (last_update_date.date() < et_now.date())
 
 def get_et_now():
     return (datetime.now(timezone.utc)
@@ -21,19 +23,16 @@ def get_time_until_next_midday(et_now):
     return str(next_midday - et_now).split(".")[0]
 
 def update_prices_if_needed(price_cache, last_update_date, pairs, et_now):
-    target_date = et_now.strftime("%Y-%m-%d 12:00")
-
     if not price_cache or should_update_prices(et_now, last_update_date):
         price_cache.clear()
-        price_cache.update(get_close_prices(pairs, target_date))
-        last_update_date = et_now.date()
+        price_cache.update(get_close_prices(pairs))
+        last_update_date = get_et_now()
 
     return price_cache, last_update_date
 
-def get_close_prices(pairs, target_date):
-    dt = datetime.strptime(target_date, "%Y-%m-%d %H:%M") - timedelta(hours=-4)
-    dt = dt.replace(tzinfo=timezone.utc)
-    timestamp_ms = int(dt.timestamp() * 1000)
+def get_close_prices(pairs):
+    timestamp_ms = get_latest_12_00_pm_et_timestamp()
+
     url = "https://api.binance.com/api/v3/klines"
     result = {}
     for pair in pairs:
@@ -51,3 +50,18 @@ def get_close_prices(pairs, target_date):
         else:
             result[pair] = "No data available."
     return result
+
+
+def get_latest_12_00_pm_et_timestamp():
+    et_tz = pytz.timezone('US/Eastern')
+    now_et = datetime.now(et_tz)
+
+    today_12_pm = et_tz.localize(datetime.combine(now_et.date(), time(12, 0)))
+
+    if now_et >= today_12_pm:
+        latest = today_12_pm
+    else:
+        yesterday = now_et.date() - timedelta(days=1)
+        latest = et_tz.localize(datetime.combine(yesterday, time(12, 0)))
+
+    return int(latest.timestamp() * 1000)
