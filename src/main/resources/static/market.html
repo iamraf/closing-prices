@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Over Under Bet</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            background: #fff;
+            max-width: 480px;
+            margin: 40px auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            padding: 32px 24px 24px 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #2a3b4c;
+        }
+
+        .info {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .highlight {
+            font-weight: bold;
+            color: #1976d2;
+        }
+
+        .countdown {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 18px;
+        }
+
+        th, td {
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        th {
+            background: #f0f4f8;
+            color: #2a3b4c;
+            font-size: 1em;
+        }
+
+        tr:nth-child(even) td {
+            background: #f9fbfd;
+        }
+
+        .asset-icon {
+            width: 22px;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        .time-select {
+            font: inherit;
+            color: inherit;
+            background: none;
+            border: none;
+            outline: none;
+            padding: 0;
+            margin: 0 0px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            text-align: center;
+        }
+
+        .time-select:focus {
+            outline: none;
+        }
+
+        .percent-pos {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        .percent-neg {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>
+            Last Asset Prices at
+            <select id="target-time" class="time-select">
+                <option value="12" selected>12:00 PM ET</option>
+                <option value="17">05:00 PM ET</option>
+            </select>
+        </h1>
+        <div class="info">
+            Current time: <span id="et-time" class="highlight">--:--:-- --</span> ET
+        </div>
+        <div class="info">
+            Time remaining for the next bet: <span id="time-remaining" class="countdown">--:--:--</span>
+        </div>
+    </div>
+    <table id="price-table">
+        <thead>
+        <tr>
+            <th>Asset</th>
+            <th>Target Price</th>
+            <th>Live Price</th>
+            <th>Change %</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+    const icons = {
+        'BTCUSDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/btc.png',
+        'ETHUSDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/eth.png',
+        'SOLUSDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/sol.png',
+        'XRPUSDT': 'https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@latest/32/color/xrp.png'
+    };
+
+    let etPrices = {};
+    let pairs = {};
+    const tableBody = document.querySelector("#price-table tbody");
+
+    function getEasternTimeDate() {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            hour12: false,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
+        });
+
+        const parts = formatter.formatToParts(new Date());
+        const dateTime = {};
+        parts.forEach(p => dateTime[p.type] = p.value);
+
+        return new Date(`${dateTime.year}-${dateTime.month}-${dateTime.day}T${dateTime.hour}:${dateTime.minute}:${dateTime.second}`);
+    }
+
+    function pad(n) {
+        return n.toString().padStart(2, '0');
+    }
+
+    function formatTo12Hour(date) {
+        let hours = date.getHours();
+        const minutes = date.getMinutes();
+        const seconds = date.getSeconds();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+
+        hours = hours % 12;
+
+        if (hours === 0) {
+            hours = 12;
+        }
+
+        return `${hours}:${pad(minutes)}:${pad(seconds)} ${ampm}`;
+    }
+
+    function updateETTime() {
+        document.getElementById('et-time').textContent = formatTo12Hour(getEasternTimeDate());
+    }
+
+    setInterval(updateETTime, 1000);
+
+    function updateCountdown(targetHour) {
+        const now = getEasternTimeDate();
+        const target = new Date(now);
+
+        target.setHours(parseInt(targetHour), 0, 0, 0);
+
+        if (now >= target) {
+            target.setDate(target.getDate() + 1);
+        }
+
+        const diff = Math.floor((target - now) / 1000);
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor((diff % 3600) / 60);
+        const s = diff % 60;
+
+        document.getElementById("time-remaining").textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+    }
+
+    setInterval(() => {
+        const time = document.getElementById("target-time").value;
+        updateCountdown(time);
+    }, 1000);
+
+    function loadData(time) {
+        fetch(`/prices?time=${time}`)
+            .then(res => res.json())
+            .then(data => {
+                etPrices = {};
+                pairs = Object.values(data).map(item => item.symbol);
+                tableBody.innerHTML = '';
+                for (const asset in data) {
+                    const close = parseFloat(data[asset].close).toFixed(3);
+                    const symbol = data[asset].symbol
+
+                    etPrices[symbol] = close;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><img src="${icons[symbol]}" class="asset-icon"/> ${symbol}</td>
+                        <td>${close}</td>
+                        <td id="live-${symbol}">${close}</td>
+                        <td id="change-${symbol}">0.00%</td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+                startWebSocket();
+            });
+    }
+
+    function startWebSocket() {
+        const streams = pairs.map(p => p.toLowerCase() + "@miniTicker").join("/");
+        const ws = new WebSocket("wss://stream.binance.com:9443/stream?streams=" + streams);
+
+        ws.onmessage = event => {
+            const msg = JSON.parse(event.data);
+
+            if (msg.data && msg.data.s && msg.data.c) {
+                const symbol = msg.data.s;
+                const price = parseFloat(msg.data.c).toFixed(3);
+                const id = "live-" + symbol;
+                const changeId = "change-" + symbol;
+                const liveEl = document.getElementById(id);
+                const changeEl = document.getElementById(changeId);
+
+                if (!liveEl || !changeEl) {
+                    return;
+                }
+
+                liveEl.textContent = price;
+                const base = etPrices[symbol];
+
+                if (base) {
+                    const percent = ((price - base) / base) * 100;
+                    const sign = percent > 0 ? "+" : percent < 0 ? "-" : "";
+                    const cls = percent > 0 ? "percent-pos" : percent < 0 ? "percent-neg" : "";
+                    changeEl.textContent = sign + Math.abs(percent).toFixed(2) + "%";
+                    changeEl.className = cls;
+                }
+            }
+        };
+    }
+
+    document.getElementById("target-time").addEventListener("change", () => {
+        const time = document.getElementById("target-time").value;
+        loadData(time);
+    });
+
+    loadData("12");
+</script>
+</body>
+</html>

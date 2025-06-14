@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: closing-prices
+  thymeleaf:
+    check-template-location: false
+
+service:
+  jobs:
+    - id: "12"
+      cron: "0 1 12 * * ?"
+      symbols:
+        - "BTCUSDT"
+        - "ETHUSDT"
+        - "SOLUSDT"
+        - "XRPUSDT"
+    - id: "17"
+      cron: "0 1 17 * * ?"
+      symbols:
+        - "BTCUSDT"
+        - "ETHUSDT"
+        - "SOLUSDT"
+        - "XRPUSDT"

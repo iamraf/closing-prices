@@ -1,0 +1,12 @@
+service:
+  jobs:
+    - id: "12"
+      cron: "0 0 0 31 2 ?"
+      symbols:
+        - "BTCUSDT"
+        - "ETHUSDT"
+    - id: "17"
+      cron: "0 0 0 31 2 ?"
+      symbols:
+        - "SOLUSDT"
+        - "XRPUSDT"
